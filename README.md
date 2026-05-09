@@ -36,12 +36,21 @@ marker pose in camera frame
 
 ## Example Result
 
-![ArUco pose estimation result](images/assets/Screenshot%20from%202026-05-09%2018-00-18.png)
+![ArUco pose estimation result](images/assets/aruco_pose_result.png)
 
 The colored outline is the detected marker boundary. The red dot marks the first
 corner in ArUco order: top-left. The axes and text overlay show the estimated
 pose: `tvec` is marker position in the camera frame, and `rvec` is marker
 orientation.
+
+## Cube on Marker Result
+
+![Virtual cube on ArUco marker](images/assets/cube_on_aruco_marker_result.png)
+
+This example is used to learn `cv2.projectPoints`. The cube corners are defined
+as 3D points in the marker/object coordinate frame, then projected into the
+camera's 2D image view. The cube is not physically present; it is drawn from the
+projected 2D points.
 
 Camera-frame convention:
 
@@ -107,6 +116,7 @@ src/
   capture_calibration_images.py   capture chessboard images from the camera
   calibrate_camera.py             compute K and D from saved chessboard images
   aruco_pose_from_camera.py       detect marker 42 and estimate pose
+  cube_on_aruco_marker.py         draw a virtual cube using the marker pose
 
 scripts/
   generate_marker.py              generate marker image
@@ -220,6 +230,27 @@ x: right in the image
 y: down in the image
 z: forward from the camera
 ```
+
+## 5. Draw a Cube on the Marker
+
+```bash
+python3 src/cube_on_aruco_marker.py
+```
+
+This script starts with the same pose estimation steps, then focuses on one more
+idea: using `cv2.projectPoints` to project a 3D object from the marker/object
+coordinate frame into the camera's 2D image view.
+
+```text
+3D cube corners in object frame + rvec/tvec + camera K and D
+        ↓
+2D cube corners in the camera image
+        ↓
+draw cube edges
+```
+
+The bottom face of the cube lies on the marker plane. The cube height is the
+same as the marker side length.
 
 ## Core Idea
 
