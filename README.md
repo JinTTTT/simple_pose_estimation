@@ -1,22 +1,66 @@
 # Simple ArUco Pose Estimation
 
-A minimal end-to-end example of 6DoF object pose estimation using ArUco markers and OpenCV's PnP solver. Built for learning purposes.
-
-## What This Does
-
-Given an RGB image containing an ArUco marker of known physical size, estimate the marker's **6DoF pose** (3D position + 3D orientation) relative to the camera.
-
-```
-RGB image  →  detect 4 marker corners (2D)  →  solvePnP  →  rotation + translation
-```
-
-Since no real camera or printed marker is needed, a simulator is included that generates synthetic views from known poses, which also serve as ground truth for evaluation.
+Learning project for estimating the pose of a printed ArUco marker with a real
+camera, OpenCV's ArUco detector, and `solvePnP`.
 
 ## Pipeline
 
+This project is used to estimate a marker's 6DoF pose in the camera frame:
+
+```text
+position:    x, y, z
+orientation: rotation
 ```
-generate_marker.py   →   simulate_views.py   →   estimate_pose.py
-   (create marker)       (render N views)        (detect + PnP + error)
+
+The workflow is:
+
+```text
+1. Capture chessboard images for camera calibration
+        ↓
+2. Calibrate the camera to get K and D
+        ↓
+3. Generate and print an ArUco marker
+        ↓
+4. Detect the marker in the camera image
+        ↓
+5. Use solvePnP to estimate the marker's 6D pose
+```
+
+In short:
+
+```text
+known marker size + detected marker corners + calibrated camera parameters
+        ↓
+marker pose in camera frame
+```
+
+The current setup uses:
+
+- Logitech C270 camera at `640 x 480`, camera index `2`
+- ArUco dictionary `DICT_6X6_250`
+- marker id `42`
+- marker physical side length `174 mm = 0.174 m`
+- chessboard calibration target with `9 x 6` inner corners
+- measured chessboard square size `23.5 mm = 0.0235 m`
+
+## Layout
+
+```text
+src/
+  capture_calibration_images.py   capture chessboard images from the camera
+  calibrate_camera.py             compute K and D from saved chessboard images
+  aruco_pose_from_camera.py       detect marker 42 and estimate pose
+
+scripts/
+  generate_marker.py              generate marker image
+  generate_chessboard.py          generate printable chessboard SVG
+
+images/
+  calibration/                    captured chessboard images
+  targets/                        generated marker/chessboard files
+
+config/
+  camera_calibration.yaml         calibrated camera matrix and distortion
 ```
 
 ## Requirements
@@ -25,45 +69,131 @@ generate_marker.py   →   simulate_views.py   →   estimate_pose.py
 pip install opencv-contrib-python numpy
 ```
 
-## Usage
+## 1. Capture Calibration Images
+
+First capture images of the printed chessboard:
 
 ```bash
-# 1. Generate the ArUco marker image
-python3 generate_marker.py
-
-# 2. Simulate camera views from known poses
-python3 simulate_views.py
-
-# 3. Run pose estimator and compare against ground truth
-python3 estimate_pose.py
+python3 src/capture_calibration_images.py
 ```
 
-## Key Concepts
+Controls:
 
-**ArUco marker** — a printed square with a black border and an inner binary cell pattern. The border gives 4 reliable corner points; the inner pattern encodes a unique ID and resolves rotational ambiguity.
+- `s`: save an image when the chessboard is detected
+- `q` or `Esc`: quit
 
-**Camera matrix K** — describes the virtual camera (focal length, principal point). Must be consistent across all scripts.
+Save around `15-30` good views. Move the chessboard around the image: center,
+left, right, top, bottom, close, far, and tilted.
 
-**solvePnP** — given 4 known 3D corner positions and their detected 2D image positions, recovers the rotation vector `rvec` and translation vector `tvec` that explain the observation.
+Images are saved to:
 
-**Homography simulation** — because the marker is a flat plane, any perspective view of it can be synthesized exactly using a homography transform. This lets us generate ground truth data without a physical camera.
+```text
+images/calibration/
+```
 
-## Configuration
+## 2. Calibrate Camera
 
-All tunable parameters are at the top of each script:
+Use the saved chessboard images to calculate the camera parameters:
 
-| Parameter | Default | Description |
-|---|---|---|
-| `MARKER_SIZE_M` | `0.1` | Physical side length of the marker in meters |
-| `MARKER_ID` | `42` | ArUco marker ID (0–249 for DICT_6X6_250) |
-| `IMG_W / IMG_H` | `640 / 480` | Simulated image resolution |
-| `K` (focal length) | `600px` | Virtual camera focal length |
+```bash
+python3 src/calibrate_camera.py
+```
 
-## Results
+This computes:
 
-On the 5 simulated views, typical errors are:
+```text
+K = camera matrix
+D = distortion coefficients
+```
 
-- Rotation error: < 1 degree
-- Translation error: < 1 cm
+and saves:
 
-Error increases slightly with distance (fewer pixels → less precise corner detection).
+```text
+config/camera_calibration.yaml
+```
+
+The current calibration result is approximately:
+
+```text
+K =
+[[676.6783,   0.0000, 345.7916],
+ [  0.0000, 677.3407, 236.5076],
+ [  0.0000,   0.0000,   1.0000]]
+
+D =
+[0.0112, 0.2488, -0.0044, 0.0064, -0.3864]
+
+RMS reprojection error = 0.8212 px
+```
+
+## 3. Generate Printable Targets
+
+```bash
+python3 scripts/generate_marker.py
+python3 scripts/generate_chessboard.py
+```
+
+Outputs:
+
+```text
+images/targets/marker_6x6_id42.png
+images/targets/chessboard_9x6_25mm.svg
+```
+
+The printed chessboard was measured after printing, so calibration uses the real
+square size:
+
+```text
+23.5 mm
+```
+
+## 4. Estimate ArUco Marker Pose
+
+```bash
+python3 src/aruco_pose_from_camera.py
+```
+
+The script:
+
+1. loads `config/camera_calibration.yaml`
+2. opens camera `2`
+3. detects ArUco marker id `42`
+4. builds the marker's known 3D corner points using side length `0.174 m`
+5. runs `cv2.solvePnP`
+6. draws the marker axes and prints `tvec`/`rvec`
+
+`tvec` is the marker center position in the camera frame:
+
+```text
+x: right in the image
+y: down in the image
+z: forward from the camera
+```
+
+## Core Idea
+
+Calibration answers:
+
+```text
+What are this camera's intrinsic parameters?
+```
+
+Pose estimation answers:
+
+```text
+Where is the marker relative to this camera?
+```
+
+The pose pipeline is:
+
+```text
+known marker 3D corners
+        +
+detected marker 2D image corners
+        +
+camera K and D
+        ↓
+solvePnP
+        ↓
+rvec and tvec
+```
