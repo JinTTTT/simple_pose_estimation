@@ -66,6 +66,40 @@ The current setup uses:
 - chessboard calibration target with `9 x 6` inner corners
 - measured chessboard square size `23.5 mm = 0.0235 m`
 
+## Requirements
+
+Install the Python dependencies:
+
+```bash
+pip install opencv-contrib-python numpy
+```
+
+Use a camera and two printed targets: one chessboard for camera calibration, and
+one ArUco marker for pose estimation.
+
+Calibration chessboard:
+
+![Chessboard calibration target](images/targets/chessboard_9x6_25mm.svg)
+
+OpenCV uses the chessboard's inner corners for calibration. An inner corner is a
+point inside the board where four squares meet. This board has `10 x 7` squares,
+so it has `9 x 6` inner corners.
+
+ArUco marker:
+
+![ArUco marker id 42](images/targets/marker_6x6_id42.png)
+
+The marker comes from OpenCV's `DICT_6X6_250` ArUco dictionary. The detector
+finds the marker's four outer corners, then reads the inner black/white pattern
+to identify the marker id.
+
+Print both targets at actual size. After printing, measure them manually:
+
+- measure one chessboard square; this project uses `23.5 mm`
+- measure the ArUco marker side length; this project uses `174 mm`
+
+Use the measured values in the scripts, not only the intended print size.
+
 ## Layout
 
 ```text
@@ -84,12 +118,6 @@ images/
 
 config/
   camera_calibration.yaml         calibrated camera matrix and distortion
-```
-
-## Requirements
-
-```bash
-pip install opencv-contrib-python numpy
 ```
 
 ## 1. Capture Calibration Images
