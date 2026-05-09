@@ -34,6 +34,29 @@ known marker size + detected marker corners + calibrated camera parameters
 marker pose in camera frame
 ```
 
+## Example Result
+
+![ArUco pose estimation result](images/assets/Screenshot%20from%202026-05-09%2018-00-18.png)
+
+The colored outline is the detected marker boundary. The red dot marks the first
+corner in ArUco order: top-left. The axes and text overlay show the estimated
+pose: `tvec` is marker position in the camera frame, and `rvec` is marker
+orientation.
+
+Camera-frame convention:
+
+```text
+x: right in the image
+y: down in the image
+z: forward from the camera
+```
+
+Marker corner order:
+
+```text
+top-left -> top-right -> bottom-right -> bottom-left
+```
+
 The current setup uses:
 
 - Logitech C270 camera at `640 x 480`, camera index `2`
